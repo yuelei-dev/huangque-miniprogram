@@ -5,10 +5,9 @@
 
   <view wx:elif="{{state === 'guest'}}" class="welcome">
     <view class="eyebrow">WECHAT BUSINESS CARD</view>
-    <view class="welcome-title">先创建一张属于你的名片</view>
-    <view class="welcome-copy">名片由微信授权管理。保存后会用手机号自动开通黄雀 AI；通过有效邀请进入可获 100 点。</view>
-    <button class="primary" bindtap="createCard">创建我的名片</button>
-    <button class="secondary" bindtap="loginExisting">已有黄雀 AI 账号</button>
+    <view class="welcome-title">登录后创建你的微信名片</view>
+    <view class="welcome-copy">为保护手机号和账号安全，新账号注册暂不在名片页开放。请先登录已有黄雀 AI 账号，再绑定微信并完善名片。</view>
+    <button class="primary" bindtap="loginExisting">登录已有黄雀 AI 账号</button>
   </view>
 
   <view wx:elif="{{state === 'error'}}" class="state-card error">

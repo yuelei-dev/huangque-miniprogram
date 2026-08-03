@@ -1,5 +1,4 @@
 const api = require('../../utils/api.js');
-const device = require('../../utils/device.js');
 const cardUtil = require('../../utils/card.js');
 const drafts = require('../../utils/drafts.js');
 
@@ -26,19 +25,7 @@ function draftPatch(saved, owner) {
     workImages: Array.isArray(saved.workImages) ? saved.workImages : works.images,
     workVideos: Array.isArray(saved.workVideos) ? saved.workVideos : works.videos,
     otherWorks: Array.isArray(saved.otherWorks) ? saved.otherWorks : works.other,
-    pendingMedia: saved.pendingMedia || {},
-    agreed: !!saved.agreed
-  };
-}
-
-function registrationNotice(data, payload) {
-  const account = data.ai_account || (data.user && data.user.username) || payload.phone;
-  if (data.created === false) {
-    return { title: '已恢复原名片', content: '微信已绑定原黄雀 AI 账号 ' + account + '，已保存本次名片修改；不会重复注册或赠送点数。' };
-  }
-  return {
-    title: '名片与黄雀 AI 已开通',
-    content: '登录账号和初始密码均为 ' + account + '。' + (data.invite_rewarded ? '有效邀请奖励 100 点已到账。' : '本次未检测到有效邀请，不赠送邀请点数。') + ' 首次充值前请先修改密码。'
+    pendingMedia: saved.pendingMedia || {}
   };
 }
 
@@ -65,8 +52,7 @@ Page({
     workVideos: cardUtil.workSlots().videos,
     otherWorks: [],
     pendingMedia: {},
-    agreed: false,
-    anonymous: true,
+    anonymous: false,
     loading: false,
     loadFailed: false,
     error: '',
@@ -83,8 +69,7 @@ Page({
 
   onLoad() {
     if (!api.getToken()) {
-      const restored = this.restoreDraft('');
-      if (restored) this.setData(restored);
+      wx.redirectTo({ url: api.loginUrl('card-edit') });
       return;
     }
     this.loadOwner();
@@ -96,15 +81,14 @@ Page({
   },
 
   saveDraft() {
-    const owner = this.data.anonymous ? '' : this.data.aiAccount;
+    const owner = this.data.aiAccount;
     return drafts.save(editDraftKey(owner), {
       owner,
       card: this.data.card,
       workImages: this.data.workImages,
       workVideos: this.data.workVideos,
       otherWorks: this.data.otherWorks,
-      pendingMedia: this.data.pendingMedia,
-      agreed: this.data.agreed
+      pendingMedia: this.data.pendingMedia
     }, []);
   },
 
@@ -144,15 +128,8 @@ Page({
   },
   passwordInput(e) { this.setData({ [e.currentTarget.dataset.field]: e.detail.value, error: '' }); },
   setPrivacy(e) { this.setData({ ['card.privacy.' + e.currentTarget.dataset.field]: !!e.detail.value, error: '' }); },
-  agreement(e) { this.setData({ agreed: ((e.detail && e.detail.value) || []).indexOf('yes') !== -1, error: '' }); },
   togglePasswordForm() { this.setData({ showPasswordForm: !this.data.showPasswordForm, error: '' }); },
   mediaComingSoon() { wx.showToast({ title: '作品媒体存储接口接入后开放', icon: 'none' }); },
-
-  openPrivacyContract() {
-    const fallback = () => wx.navigateTo({ url: '/pages/legal/legal?type=privacy' });
-    if (!wx.openPrivacyContract) { fallback(); return; }
-    wx.openPrivacyContract({ fail: fallback });
-  },
 
   chooseMedia(e) {
     const field = e.currentTarget.dataset.field;
@@ -162,10 +139,6 @@ Page({
       if (media.size > 4 * 1024 * 1024) { this.setData({ error: '请上传 4MB 以内的图片' }); return; }
       let filePath = media.tempFilePath;
       const proceed = () => {
-        if (this.data.anonymous) {
-          this.setData({ ['card.' + field]: filePath, ['pendingMedia.' + field]: filePath, error: '' });
-          return;
-        }
         this.setData({ loading: true, error: '' });
         uploadMedia(filePath, field).then((url) => this.setData({ ['card.' + field]: url, loading: false }))
           .catch((error) => this.setData({ loading: false, error: error.message || '图片上传失败' }));
@@ -186,42 +159,12 @@ Page({
     });
   },
 
-  registerCard(payload) {
-    const attribution = cardUtil.lastValidAttribution();
-    return cardUtil.wechatLoginCode().then((code) => api.request('/api/auth/miniprogram/card-register', {
-      method: 'POST',
-      data: {
-        wx_code: code,
-        phone: payload.phone,
-        device_id: device.getDeviceId(),
-        card: payload,
-        invite_code: attribution ? attribution.code : undefined,
-        invite_attribution_token: attribution ? attribution.attribution_token : undefined
-      }
-    })).then((res) => {
-      const data = res.data || {};
-      if (res.statusCode === 409 && data.code === 'account_exists') {
-        throw new Error('该手机号已有黄雀 AI 账号，请先用原账号登录，再绑定微信名片');
-      }
-      if (res.statusCode !== 200 || !data.token) throw new Error(data.detail || '名片与黄雀 AI 开通失败');
-      api.setToken(data.token);
-      if (data.created !== false) return data;
-      return api.request('/api/auth/card/me', { method: 'PUT', data: payload }).then((update) => {
-        const updated = update.data || {};
-        if (update.statusCode !== 200) throw new Error(updated.detail || '恢复账号后保存名片失败');
-        return Object.assign({}, data, { card: updated.card || payload });
-      });
-    });
-  },
-
   save() {
     if (this.data.loading) return;
     if (!cardUtil.isComplete(this.data.card)) {
       this.setData({ error: cardUtil.validPhone(this.data.card.phone) ? '请填写姓名、职称和公司' : '请填写正确的 11 位手机号' });
       return;
     }
-    if (this.data.anonymous && !this.data.agreed) { this.setData({ error: '请先阅读并同意用户协议和隐私指引' }); return; }
-
     const payload = cardUtil.cardPayload(Object.assign({}, this.data.card, {
       works: cardUtil.worksPayload(this.data.workImages, this.data.workVideos, this.data.otherWorks)
     }));
@@ -230,62 +173,32 @@ Page({
       return;
     }
     this.setData({ loading: true, error: '' });
-    const pendingMedia = this.data.pendingMedia || {};
-    const wasAnonymous = this.data.anonymous;
-    const request = wasAnonymous
-      ? this.registerCard(payload)
-      : this.ensureWechatBound().then(() => api.request('/api/auth/card/me', { method: 'PUT', data: payload })).then((res) => {
-        const data = res.data || {};
-        if (res.statusCode !== 200) throw new Error(data.detail || '名片保存失败');
-        return data;
-      });
+    const request = this.ensureWechatBound().then(() => api.request('/api/auth/card/me', { method: 'PUT', data: payload })).then((res) => {
+      const data = res.data || {};
+      if (res.statusCode !== 200) throw new Error(data.detail || '名片保存失败');
+      return data;
+    });
 
     request.then((data) => {
       const saved = Object.assign({}, payload, data.card || {});
-      const continueSave = () => {
-        const finish = (card, warning) => {
-          const publicId = card.public_id || data.public_id || this.data.publicId || '';
-          const published = cardUtil.isPublished(card);
-          this.setData({
-            loading: false,
-            anonymous: false,
-            pendingMedia: warning ? pendingMedia : {},
-            card: Object.assign({}, this.data.card, card),
-            publicId,
-            published,
-            wechatBound: true,
-            aiAccount: data.ai_account || (data.user && data.user.username) || this.data.aiAccount || payload.phone,
-            initialPassword: data.initial_password === undefined ? wasAnonymous : !!data.initial_password,
-            error: warning || ''
-          });
-          if (!warning) drafts.clear(editDraftKey(wasAnonymous ? '' : this.data.aiAccount));
-          if (published) { this.openCard(publicId, warning ? '文字名片已保存' : '修改已保存'); return; }
-          this.publish(warning);
-        };
-        if (wasAnonymous && Object.keys(pendingMedia).length) {
-          this.uploadPendingMedia(saved, pendingMedia).then((updated) => finish(updated)).catch(() => finish(saved, '账号和文字名片已保存，请稍后重试图片'));
-          return;
-        }
-        finish(saved);
-      };
-
-      if (!wasAnonymous) { continueSave(); return; }
-      const notice = registrationNotice(data, payload);
-      wx.showModal({
-        title: notice.title,
-        content: notice.content,
-        showCancel: false,
-        confirmText: '知道了',
-        success: continueSave,
-        fail: continueSave
+      const publicId = saved.public_id || data.public_id || this.data.publicId || '';
+      const published = cardUtil.isPublished(saved);
+      this.setData({
+        loading: false,
+        anonymous: false,
+        pendingMedia: {},
+        card: Object.assign({}, this.data.card, saved),
+        publicId,
+        published,
+        wechatBound: true,
+        aiAccount: data.ai_account || this.data.aiAccount || payload.phone,
+        initialPassword: data.initial_password === undefined ? this.data.initialPassword : !!data.initial_password,
+        error: ''
       });
+      drafts.clear(editDraftKey(this.data.aiAccount));
+      if (published) { this.openCard(publicId, '修改已保存'); return; }
+      this.publish();
     }).catch((error) => this.setData({ loading: false, error: error.message || '名片保存失败' }));
-  },
-
-  uploadPendingMedia(saved, pendingMedia) {
-    const updated = Object.assign({}, saved);
-    return Object.keys(pendingMedia).reduce((chain, field) => chain.then(() => uploadMedia(pendingMedia[field], field).then((url) => { updated[field] = url; })), Promise.resolve())
-      .then(() => updated);
   },
 
   changePassword() {
@@ -344,4 +257,4 @@ Page({
   }
 });
 
-if (typeof module !== 'undefined') module.exports = { blankCard, uploadMedia, draftPatch, registrationNotice, editDraftKey, EDIT_DRAFT_KEY };
+if (typeof module !== 'undefined') module.exports = { blankCard, uploadMedia, draftPatch, editDraftKey, EDIT_DRAFT_KEY };

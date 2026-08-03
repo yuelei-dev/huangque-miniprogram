@@ -72,7 +72,8 @@ Page({
     if (this.data.attributionToken) {
       api.request('/api/auth/invite/journey/start', { method: 'POST', auth: false, data: { invite_attribution_token: this.data.attributionToken } }).catch(() => {});
     }
-    wx.navigateTo({ url: '/pages/card-edit/card-edit?source=invite' });
+    const url = api.getToken() ? '/pages/card-edit/card-edit?source=invite' : api.loginUrl('card-edit');
+    wx.navigateTo({ url });
   },
   goEdit() { wx.navigateTo({ url: '/pages/card-edit/card-edit' }); },
   retry() {

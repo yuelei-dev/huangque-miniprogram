@@ -76,7 +76,7 @@ require('node:test')('joining records the server-validated journey without block
     path: '/api/auth/invite/journey/start',
     options: { method: 'POST', auth: false, data: { invite_attribution_token: 'signed-token' } }
   });
-  assert.strictEqual(target, '/pages/card-edit/card-edit?source=invite');
+  assert.strictEqual(target, '/pages/login/login?redirect=card-edit');
 });
 const recharge = require('../miniprogram/pages/recharge/recharge.js');
 const experience = recharge.buildRechargeConfig({ membership_status: 'active', membership_active: true, membership_tier: 'experience' }, { items: [] });
@@ -130,25 +130,19 @@ assert.match(publicCardWxml, /重新加载/);
 assert.doesNotMatch(publicCardWxml, /初始密码|登录账号|黄雀 AI 登录信息/);
 assert.doesNotMatch(loginPage, /miniprogram-register|buildRegistrationPayload/);
 assert.doesNotMatch(loginWxml, /注册并登录|邀请码（选填）|新用户注册即送/);
-assert.match(loginWxml, /先创建我的名片/);
-assert.match(publicCard, /card-edit\/card-edit\?source=invite/);
+assert.doesNotMatch(loginWxml, /先创建我的名片|注册并登录/);
+assert.match(loginWxml, /新账号请联系管理员完成安全注册/);
+assert.match(publicCard, /api\.loginUrl\('card-edit'\)/);
 assert.match(editCard, /card\.privacy\.phone/);
 assert.match(editCard, /card\.privacy\.email/);
 assert.match(editCard, /card\.privacy\.address/);
 assert.match(editCard, /card\.privacy\.wechat_qr/);
-assert.match(editCard, /legal\?type=terms/);
-assert.match(editCard, /openPrivacyContract/);
-assert.match(editCardJs, /indexOf\('yes'\) !== -1/);
 assert.match(editCardJs, /pendingMedia/);
 assert.match(editCardJs, /media\.size > 4 \* 1024 \* 1024/);
 assert.match(editCardJs, /function uploadMedia\(filePath, field\)/);
 assert.match(editCardJs, /data: \{ field, data: 'data:image\/jpeg;base64,' \+ result\.data/);
-assert.match(editCardJs, /uploadMedia\(pendingMedia\[field\], field\)/);
-assert.doesNotMatch(editCardJs, /uploadPendingMedia[\s\S]*\/api\/auth\/card\/me/);
-assert.match(editCardJs, /invite_attribution_token/);
-assert.match(editCardJs, /\/api\/auth\/miniprogram\/card-register/);
+assert.doesNotMatch(editCardJs, /uploadPendingMedia|invite_attribution_token|\/api\/auth\/miniprogram\/card-register/);
 assert.match(editCardJs, /\/api\/auth\/card\/wechat\/bind/);
-assert.match(editCardJs, /phone: payload\.phone/);
 assert.match(editCardJs, /\/api\/auth\/change_password/);
 assert.doesNotMatch(editCard, /设置登录账号|设置登录密码/);
 assert.match(editCard, /手机号 \*/);
@@ -166,11 +160,10 @@ assert.match(publicCardWxml, /work-caption/);
 assert.match(editCard, /初始密码与手机号一致/);
 assert.match(editCardJs, /\/api\/auth\/card\/unpublish/);
 assert.match(editCardJs, /published: cardUtil\.isPublished\(card\)/);
-assert.match(editCardJs, /this\.publish\(warning\)/);
+assert.match(editCardJs, /this\.publish\(\)/);
 assert.match(editCardJs, /&mine=1/);
-assert.match(editCardJs, /账号和文字名片已保存，请稍后重试图片/);
-assert.match(editCard, /保存名片并开通黄雀 AI/);
-assert.match(editCard, /!anonymous && published/);
+assert.doesNotMatch(editCard, /保存名片并开通黄雀 AI|手机号会同时成为|邀请注册成功/);
+assert.match(editCard, /!loadFailed && published/);
 assert.match(editCardWxss, /\.field input \{ height: 84rpx; padding: 0 20rpx; line-height: 84rpx; \}/);
 assert.match(editCardWxss, /\.field textarea \{ height: 200rpx; min-height: 200rpx; padding: 18rpx 20rpx; line-height: 1\.6; \}/);
 assert.match(editCardWxss, /\.field-grid \{ display: grid; grid-template-columns: 1fr 1fr;/);
@@ -200,6 +193,7 @@ assert.match(myCardPage, /\/api\/auth\/card\/wechat\/bind/);
 assert.match(myCardPage, /card_unbound/);
 assert.match(myCardPage, /if \(this\.data\.binding\) return/);
 assert.match(myCardWxml, /已有黄雀 AI 账号/);
+assert.doesNotMatch(myCardWxml, /bindtap="createCard"|自动开通黄雀 AI/);
 assert.match(myCardWxml, /disabled="\{\{binding\}\}"/);
 assert.match(rechargePage, /充值前先修改初始密码/);
 
@@ -207,21 +201,18 @@ let editDefinition;
 global.Page = function (definition) { editDefinition = definition; };
 const editModule = require('../miniprogram/pages/card-edit/card-edit.js');
 const cardEditDefinition = editDefinition;
-const recoveredNotice = editModule.registrationNotice({ created: false, ai_account: 'old-account' }, { phone: '13900000000' });
-assert.strictEqual(recoveredNotice.title, '已恢复原名片');
-assert.match(recoveredNotice.content, /old-account/);
-assert.doesNotMatch(recoveredNotice.content, /13900000000|100 点已到账|初始密码/);
-const rewardedNotice = editModule.registrationNotice({ created: true, invite_rewarded: true, ai_account: '13800138000' }, { phone: '13800138000' });
-assert.match(rewardedNotice.content, /100 点已到账/);
+const editApi = require('../miniprogram/utils/api.js');
+const originalGetToken = editApi.getToken;
+let unauthenticatedEditTarget = '';
+editApi.getToken = () => '';
+global.wx.redirectTo = ({ url }) => { unauthenticatedEditTarget = url; };
+cardEditDefinition.onLoad.call({});
+editApi.getToken = originalGetToken;
+assert.strictEqual(unauthenticatedEditTarget, '/pages/login/login?redirect=card-edit');
 assert.notStrictEqual(editModule.editDraftKey('account-a'), editModule.editDraftKey('account-b'));
 const recoveredDraft = editModule.draftPatch({ owner: '13800138000', card: { name: '草稿姓名', phone: '13800138000' } }, '13800138000');
 assert.strictEqual(recoveredDraft.card.name, '草稿姓名');
 assert.strictEqual(editModule.draftPatch({ owner: 'other', card: { phone: '13800138000' } }, '13800138000'), null);
-const editContext = { data: Object.assign({}, editDefinition.data), setData(patch) { Object.assign(this.data, patch); } };
-editDefinition.agreement.call(editContext, { detail: { value: ['yes'] } });
-assert.strictEqual(editContext.data.agreed, true);
-editDefinition.agreement.call(editContext, { detail: { value: [] } });
-assert.strictEqual(editContext.data.agreed, false);
 let titlePatch;
 editDefinition.workTitleInput.call({ setData(patch) { titlePatch = patch; } }, { currentTarget: { dataset: { type: 'video', index: 1 } }, detail: { value: '我的品牌故事' } });
 assert.deepStrictEqual(titlePatch, { 'workVideos[1].title': '我的品牌故事', error: '' });
@@ -233,8 +224,7 @@ require('node:test')('card save stops when the recovery draft cannot be stored',
   try {
     const context = {
       data: Object.assign({}, cardEditDefinition.data, {
-        anonymous: true,
-        agreed: true,
+        anonymous: false,
         card: Object.assign({}, cardEditDefinition.data.card, { name: '王小明', title: '设计师', company: '黄雀', phone: '13800138000' })
       }),
       setData(patch) { Object.assign(this.data, patch); },
@@ -265,28 +255,24 @@ editModule.uploadMedia('/tmp/avatar.jpg', 'avatar').then((url) => {
   });
 }).catch((error) => { throw error; });
 
-require('node:test')('registering a draft card publishes it before redirecting', { timeout: 1000 }, async () => {
-  delete store.hq_token;
+require('node:test')('authenticated card save updates and publishes without creating an account', { timeout: 1000 }, async () => {
+  store.hq_token = 'existing-token';
   const requests = [];
   const completeCard = {
     name: '王小明', title: '设计师', company: '黄雀', bio: '', tags: '', links: '',
     email: '', address: '', phone: '13800138000', avatar: '', wechat_qr: '', privacy: card.privacy()
   };
-  let registerPayload;
   api.request = function (requestPath, options) {
     requests.push(requestPath);
-    if (requestPath === '/api/auth/miniprogram/card-register') {
-      registerPayload = options.data;
-      return Promise.resolve({ statusCode: 200, data: { token: 'new-token', created: true, invite_bound: true, invite_rewarded: true, ai_account: '13800138000', initial_password: true, user: { username: '13800138000' }, card: Object.assign({}, completeCard, { public_id: 'public-1', status: 'draft' }) } });
+    if (requestPath === '/api/auth/card/me') {
+      assert.strictEqual(options.method, 'PUT');
+      return Promise.resolve({ statusCode: 200, data: { card: Object.assign({}, options.data, { public_id: 'public-1', status: 'draft' }) } });
     }
     if (requestPath === '/api/auth/card/publish') {
       return Promise.resolve({ statusCode: 200, data: { card: Object.assign({}, completeCard, { public_id: 'public-1', status: 'published', invite_code: 'ABCD23' }) } });
     }
     return Promise.reject(new Error('unexpected request ' + requestPath));
   };
-  global.wx.login = function (options) { options.success({ code: 'wx-code' }); };
-  let registrationModal;
-  global.wx.showModal = function (options) { registrationModal = options; if (options.success) options.success({ confirm: true }); };
   global.wx.showToast = function () {};
   let finishRedirect;
   const redirected = new Promise((resolve) => { finishRedirect = resolve; });
@@ -295,63 +281,20 @@ require('node:test')('registering a draft card publishes it before redirecting',
   titledWorks.images[0].title = '品牌发布会';
   const context = {
     data: Object.assign({}, cardEditDefinition.data, {
-      anonymous: true, agreed: true,
+      anonymous: false, wechatBound: true, aiAccount: 'existing-user',
       card: completeCard, workImages: titledWorks.images, workVideos: titledWorks.videos, pendingMedia: {}, loading: false
     }),
     setData(patch) { Object.assign(this.data, patch); },
     saveDraft: cardEditDefinition.saveDraft,
-    registerCard: cardEditDefinition.registerCard,
-    uploadPendingMedia: cardEditDefinition.uploadPendingMedia,
+    ensureWechatBound: () => Promise.resolve(),
     publish: cardEditDefinition.publish,
     openCard: cardEditDefinition.openCard
   };
   cardEditDefinition.save.call(context);
   const redirect = await redirected;
   assert.strictEqual(redirect, '/pages/card/card?id=public-1&mine=1');
-  assert.deepStrictEqual(requests, ['/api/auth/miniprogram/card-register', '/api/auth/card/publish']);
-  assert.strictEqual(registerPayload.wx_code, 'wx-code');
-  assert.strictEqual(registerPayload.phone, '13800138000');
-  assert.strictEqual(registerPayload.card.works[0].title, '品牌发布会');
+  assert.deepStrictEqual(requests, ['/api/auth/card/me', '/api/auth/card/publish']);
   assert.strictEqual(context.data.published, true);
-  assert.match(registrationModal.content, /100 点已到账/);
-
-  requests.length = 0;
-  const latestCard = Object.assign({}, completeCard, { name: '修改后的名字' });
-  api.request = function (requestPath, options) {
-    requests.push(requestPath);
-    if (requestPath === '/api/auth/miniprogram/card-register') {
-      return Promise.resolve({ statusCode: 200, data: { token: 'recovered-token', created: false, invite_bound: true, invite_rewarded: false, ai_account: '13800138000', initial_password: true, user: { username: '13800138000' }, card: Object.assign({}, completeCard, { name: '旧名字', public_id: 'public-1', status: 'draft' }) } });
-    }
-    if (requestPath === '/api/auth/card/me') {
-      assert.strictEqual(options.method, 'PUT');
-      assert.strictEqual(options.data.name, '修改后的名字');
-      return Promise.resolve({ statusCode: 200, data: { card: Object.assign({}, options.data, { public_id: 'public-1', status: 'draft' }) } });
-    }
-    if (requestPath === '/api/auth/card/publish') {
-      return Promise.resolve({ statusCode: 200, data: { card: Object.assign({}, latestCard, { public_id: 'public-1', status: 'published', invite_code: 'ABCD23' }) } });
-    }
-    return Promise.reject(new Error('unexpected request ' + requestPath));
-  };
-  let replayFinish;
-  const replayRedirected = new Promise((resolve) => { replayFinish = resolve; });
-  global.wx.redirectTo = function (options) { replayFinish(options.url); };
-  const replayContext = {
-    data: Object.assign({}, cardEditDefinition.data, {
-      anonymous: true, agreed: true,
-      card: latestCard, workImages: titledWorks.images, workVideos: titledWorks.videos, pendingMedia: {}, loading: false
-    }),
-    setData(patch) { Object.assign(this.data, patch); },
-    saveDraft: cardEditDefinition.saveDraft,
-    registerCard: cardEditDefinition.registerCard,
-    uploadPendingMedia: cardEditDefinition.uploadPendingMedia,
-    publish: cardEditDefinition.publish,
-    openCard: cardEditDefinition.openCard
-  };
-  cardEditDefinition.save.call(replayContext);
-  await replayRedirected;
-  assert.deepStrictEqual(requests, ['/api/auth/miniprogram/card-register', '/api/auth/card/me', '/api/auth/card/publish']);
-  assert.strictEqual(replayContext.data.card.name, '修改后的名字');
-  assert.doesNotMatch(registrationModal.content, /100 点已到账/);
 });
 
 require('node:test')('follow-create requires a complete WeChat-bound card', async () => {

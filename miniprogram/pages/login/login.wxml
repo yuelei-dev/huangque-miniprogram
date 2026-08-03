@@ -46,7 +46,7 @@
     <view class="btn-primary {{(loading || !agreed)?'disabled':''}}" bindtap="submit">
       {{loading ? '请稍候…' : '登录'}}
     </view>
-    <view class="card-register-link" bindtap="openCardRegistration">还没有账号？先创建我的名片</view>
+    <view class="card-register-link">新账号请联系管理员完成安全注册</view>
   </view>
 
   <view class="foot muted">数据由黄雀传媒后端安全处理</view>

@@ -74,7 +74,6 @@ Page({
     });
   },
 
-  createCard() { wx.navigateTo({ url: '/pages/card-edit/card-edit?source=new' }); },
   loginExisting() { wx.navigateTo({ url: '/pages/login/login?redirect=my-card' }); },
   editCard() { wx.navigateTo({ url: '/pages/card-edit/card-edit' }); },
   openCard() {
