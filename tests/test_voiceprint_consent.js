@@ -63,7 +63,7 @@ assert(videoSource.includes('body.voice_consent_at = this.data.talkAudioConsentA
 
 assert(homePage.includes('<view class="mc-title">一键跟创</view>'));
 assert(!homePage.includes('视频灵感拆解'));
-assert(homeSource.includes("wx.switchTab({ url: '/pages/inspiration/inspiration' })"));
+assert(homeSource.includes("wx.navigateTo({ url: '/pages/inspiration/inspiration' })"));
 assert(!homeSource.includes("wx.showToast({ title: '功能即将上线'"));
 
 console.log('voiceprint consent tests passed');
