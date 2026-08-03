@@ -4,13 +4,44 @@
   <view class="top-spacer">
     <!-- 纯 WXSS 动效：不依赖 GIF / 定时器，页面离开后由渲染层自动停止 -->
     <view class="hero-motion" aria-hidden="true">
-      <view class="hero-aurora"></view>
-      <view class="hero-orbit hero-orbit-back"></view>
-      <view class="hero-orbit hero-orbit-front"></view>
-      <view class="hero-core"><view class="hero-core-dot"></view></view>
-      <view class="hero-spark hero-spark-one"></view>
-      <view class="hero-spark hero-spark-two"></view>
-      <view class="hero-spark hero-spark-three"></view>
+      <view class="hero-haze hero-haze-left"></view>
+      <view class="hero-haze hero-haze-right"></view>
+      <view class="hero-beam"></view>
+      <view class="hero-starfield"></view>
+      <view class="hero-stage">
+        <view class="hero-depth-shadow"></view>
+        <view class="hero-energy-plane"></view>
+        <view class="hero-orbit hero-orbit-outer">
+          <view class="orbit-node orbit-node-one"></view>
+          <view class="orbit-node orbit-node-two"></view>
+        </view>
+        <view class="hero-orbit hero-orbit-mid">
+          <view class="orbit-node orbit-node-three"></view>
+        </view>
+        <view class="hero-orbit hero-orbit-vertical">
+          <view class="orbit-node orbit-node-four"></view>
+          <view class="orbit-node orbit-node-five"></view>
+        </view>
+        <view class="hero-sphere-halo"></view>
+        <view class="hero-sphere">
+          <view class="sphere-surface">
+            <view class="sphere-texture"></view>
+            <view class="sphere-atmosphere"></view>
+            <view class="sphere-highlight"></view>
+            <view class="sphere-band sphere-band-one"></view>
+            <view class="sphere-band sphere-band-two"></view>
+            <view class="sphere-core"></view>
+            <view class="sphere-rim"></view>
+          </view>
+        </view>
+        <view class="hero-particle hero-particle-one"></view>
+        <view class="hero-particle hero-particle-two"></view>
+        <view class="hero-particle hero-particle-three"></view>
+        <view class="hero-particle hero-particle-four"></view>
+        <view class="hero-dust hero-dust-one"></view>
+        <view class="hero-dust hero-dust-two"></view>
+      </view>
+      <view class="hero-reflection"></view>
     </view>
     <view class="brandbar">
       <view class="brand-lockup">
