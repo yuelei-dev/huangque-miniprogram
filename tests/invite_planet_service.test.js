@@ -56,6 +56,26 @@ test('never exposes a raw login username as a planet display name', () => {
   assert.equal(JSON.stringify(person).includes('13800000000'), false);
 });
 
+test('uses the deployed privacy-safe card profile instead of the login username', () => {
+  const person = service.publicPerson({
+    username: '13800000000',
+    membership_tier: 'experience',
+    membership_name: '体验官',
+    card_available: true,
+    card_public_id: 'card-public-1',
+    name: '完整客户姓名',
+    title: '品牌主理人',
+    avatar: '/api/auth/card/media/card-public-1/avatar',
+    node_grant: 'viewer-bound-grant'
+  }, 'child');
+  assert.equal(person.name, '完整客户姓名');
+  assert.equal(person.title, '品牌主理人');
+  assert.equal(person.avatar, '/api/auth/card/media/card-public-1/avatar');
+  assert.equal(person.public_id, 'card-public-1');
+  assert.equal(person.node_grant, 'viewer-bound-grant');
+  assert.equal(JSON.stringify(person).includes('13800000000'), false);
+});
+
 test('returns the exact experience-tier permission message', async () => {
   const client = service.createPlanetService(() => Promise.resolve({
     statusCode: 403,
