@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  linux-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: JavaScript syntax check
+        run: |
+          set -e
+          count=0
+          while IFS= read -r -d '' f; do
+            node --check "$f"
+            count=$((count+1))
+          done < <(find miniprogram tests -name '*.js' -not -path '*/node_modules/*' -print0)
+          echo "syntax-ok: $count js files"
+
+      - name: JSON parse check
+        run: |
+          set -e
+          count=0
+          while IFS= read -r -d '' f; do
+            node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'))" "$f"
+            count=$((count+1))
+          done < <(find . -name '*.json' -not -path './.git/*' -not -path '*/node_modules/*' -print0)
+          echo "json-ok: $count json files"
+
+      - name: Run test suite
+        run: |
+          set -e
+          pass=0
+          for f in tests/*.test.js; do
+            node "$f"
+            pass=$((pass+1))
+          done
+          echo "tests-pass: $pass"
+
+      - name: Whitespace check
+        run: git diff --check origin/main...HEAD
